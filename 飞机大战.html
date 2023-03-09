@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      #box {
+        width: 320px;
+        height: 568px;
+        margin: 60px auto;
+      }
+      #startPage {
+        background: url("./images/开始背景.png");
+        height: 100%;
+        position: relative;
+      }
+      #playPage {
+        background: url("./images/background_1.png");
+        height: 100%;
+        position: relative;
+        display: none;
+      }
+      #pause {
+        background: rgba(0, 0, 0, .3);
+        height: 100%;
+        position: relative;
+        top: -568px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        display: none;
+      }
+      #pause p{
+        cursor: pointer;
+        text-align: center;
+        line-height: 24px;
+        width: 80px;
+        border: 2px solid #fff;
+        border-radius: 5px;
+      }
+      #pause p:hover{
+        border: 2px solid #fff;
+        color: white;
+        background-color: black;
+      }
+      #startPage button {
+        width: 80px;
+        font-size: 30px;
+        position: absolute;
+        left: 120px;
+        top: 280px;
+        background: transparent;
+        border: none;
+        font-weight: bold;
+        /* color: #6c6d6d; */
+        animation: change 5s linear infinite forwards;
+        cursor: pointer;
+      }
+      @keyframes change {
+        0% {
+          color: rgb(118, 114, 114);
+        }
+        20% {
+          color: rgb(150, 115, 56);
+        }
+        40% {
+          color: rgb(24, 44, 106);
+        }
+        80% {
+          color: rgb(54, 37, 8);
+        }
+        100% {
+          color: rgb(74, 39, 106);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="box">
+      <!-- 开始页面 -->
+      <div id="startPage">
+        <button>开始</button>
+      </div>
+      <!-- 游戏页面 -->
+      <div id="playPage">
+        <span>分数：0</span>
+      </div>
+      <!-- 暂停界面 -->
+      <div id="pause">
+          <p id="goOn">继续</p>
+          <p id="new">新游戏</p>
+          <p id="index">返回主页</p>
+      </div>
+    </div>
+    <script>
+      var oBox = document.querySelector("#box");
+      var oPlayPage = document.querySelector("#playPage");
+      var oStartPage = document.querySelector("#startPage");
+      var oStartBtn = document.querySelector("#startPage button");
+      var oPause = document.querySelector("#pause");
+      var oGoOn=document.querySelector('#goOn');
+      var oNew=document.querySelector('#new');
+      var oIndex=document.querySelector('#index');
+      var oScore;
+      var score = 0;
+      var player = null;
+      var isStart = false;
+      var bulletArr = [];
+      var enemyPlaneArr = [];
+      var bLeft = false;
+      var bTop = false;
+      var bRight = false;
+      var bBottom = false;
+      var timer1;
+      var timer2;
+      oStartBtn.addEventListener("click", startFn);
+      function startFn() {
+        oScore = document.querySelector("#playPage span");
+        //修改开始状态
+        isStart = true;
+        //创建玩家飞机
+        if (!player) {
+          player = new PlayerPlane("./images/myplane.gif", 127, 488, 5);
+        }
+        oStartPage.style.display = "none";
+        oPlayPage.style.display = "block";
+        //设置定时器，统一时间间隔一样的函数
+        timer1 = setInterval(move, 30);
+        //一直出现敌机
+        timer2 = setInterval(createEnemyPlane, 600);
+      }
+      function move() {
+        //玩家飞机移动
+        playerMove();
+        //所有子弹动
+        bulletMove();
+        //所有敌机动
+        enemyPlaneMove();
+        //碰撞检测
+        collisionDetection();
+      }
+      //随机数功能
+      function random(n, m) {
+        return Math.floor(Math.random() * (m - n) + n);
+      }
+      //暂停
+      function stop() {
+        clearInterval(timer1);
+        clearInterval(timer2);
+        oPause.style.display='flex';
+        isStart = false;
+      }
+      //检测是否碰撞的功能，碰撞为true,反之false
+      function collision(obj1, obj2) {
+        var t1 = obj1.offsetTop;
+        var b1 = obj1.offsetTop + obj1.offsetHeight;
+        var l1 = obj1.offsetLeft;
+        var r1 = obj1.offsetLeft + obj1.offsetWidth;
+
+        var t2 = obj2.offsetTop;
+        var b2 = obj2.offsetTop + obj2.offsetHeight;
+        var l2 = obj2.offsetLeft;
+        var r2 = obj2.offsetLeft + obj2.offsetWidth;
+        if (b1 > t2 && t1 < b2 && r1 > l2 && l1 < r2) {
+          return true;
+        } else {
+          return false;
+        }
+      }
+      //玩家飞机构造函数
+      function PlayerPlane(src, x, y, speed) {
+        this.obj = document.createElement("img");
+        this.src = src;
+        this.x = x;
+        this.y = y;
+        this.speed = speed;
+        this.isDead = false;
+        this.init();
+      }
+      PlayerPlane.prototype = {
+        init: function () {
+          this.obj.src = this.src;
+          this.obj.style.left = this.x + "px";
+          this.obj.style.top = this.y + "px";
+          this.obj.style.position = "absolute";
+          oPlayPage.appendChild(this.obj);
+        },
+        shooting: function () {
+          //创建了一颗子弹
+          var b = new Bullet(
+            "./images/bullet1.png",
+            this.obj.offsetLeft + this.obj.offsetWidth / 2 - 2,
+            this.obj.offsetTop - 14,
+            8
+          );
+          if(score>=30){
+            var b1 = new Bullet(
+            "./images/bullet1.png",
+            this.obj.offsetLeft + this.obj.offsetWidth / 2 - 20,
+            this.obj.offsetTop - 14,
+            7
+          );
+          bulletArr.push(b1);
+          var b2 = new Bullet(
+            "./images/bullet1.png",
+            this.obj.offsetLeft + this.obj.offsetWidth / 2 + 16,
+            this.obj.offsetTop - 14,
+            7
+          );
+          bulletArr.push(b2);
+          }
+          bulletArr.push(b);
+        },
+        toTop: function () {
+          var t = this.obj.offsetTop - this.speed;
+          if (t < 0) {
+            t = 0;
+          }
+          this.obj.style.top = t + "px";
+        },
+        toBottom: function () {
+          var b = this.obj.offsetTop + this.speed;
+          if (b >= oBox.offsetHeight - this.obj.offsetHeight) {
+            b = oBox.offsetHeight - this.obj.offsetHeight;
+          }
+          this.obj.style.top = b + "px";
+        },
+        toLeft: function () {
+          var l = this.obj.offsetLeft - this.speed;
+          if (l < 0) {
+            l = 0;
+          }
+          this.obj.style.left = l + "px";
+        },
+        toRight: function () {
+          var r = this.obj.offsetLeft + this.speed;
+          if (r >= oBox.offsetWidth - this.obj.offsetWidth) {
+            r = oBox.offsetWidth - this.obj.offsetWidth;
+          }
+          this.obj.style.left = r + "px";
+        },
+      };
+      //子弹构造函数
+      function Bullet(src, x, y, speed) {
+        this.obj = document.createElement("img");
+        this.src = src;
+        this.x = x;
+        this.y = y;
+        this.speed = speed;
+        this.isDead = false;
+        this.init();
+      }
+      Bullet.prototype = {
+        init: function () {
+          this.obj.src = this.src;
+          this.obj.style.left = this.x + "px";
+          this.obj.style.top = this.y + "px";
+          this.obj.style.position = "absolute";
+          oPlayPage.appendChild(this.obj);
+        },
+        move: function () {
+          this.obj.style.top = this.obj.offsetTop - this.speed + "px";
+        },
+      };
+      //敌机构造函数
+      function EnemyPlane(src, x, y, speed, blood,deadTime) {
+        this.obj = document.createElement("img");
+        this.src = src;
+        this.x = x;
+        this.y = y;
+        this.speed = speed;
+        this.blood = blood;
+        this.isDead = false;
+        this.deadTime = deadTime;
+        this.init();
+      }
+      EnemyPlane.prototype = {
+        init: function () {
+          this.obj.src = this.src;
+          this.obj.style.left = this.x + "px";
+          this.obj.style.top = this.y + "px";
+          this.obj.style.position = "absolute";
+          oPlayPage.appendChild(this.obj);
+        },
+        move: function () {
+          this.obj.style.top = this.obj.offsetTop + this.speed + "px";
+        },
+      };
+      //玩家飞机移动
+      function playerMove() {
+        if (player.isDead) {
+          return;
+        }
+        if (bLeft) {
+          player.toLeft();
+        }
+        if (bRight) {
+          player.toRight();
+        }
+        if (bTop) {
+          player.toTop();
+        }
+        if (bBottom) {
+          player.toBottom();
+        }
+      }
+      //子弹移动
+      function bulletMove() {
+        for (var i = 0; i < bulletArr.length; i++) {
+          bulletArr[i].move();
+          if (bulletArr[i].obj.offsetTop <= 0 || bulletArr[i].isDead) {
+            oPlayPage.removeChild(bulletArr[i].obj);
+            bulletArr.splice(i, 1);
+          }
+        }
+      }
+      //创建敌机
+      function createEnemyPlane() {
+        var e = new EnemyPlane(
+          "./images/enemy1_fly_1.png",
+          random(0, oBox.offsetWidth - 34),
+          0,
+          random(1,3),
+          1,
+          10
+        );
+        if(score%5==0&&score!=0){
+            var me = new EnemyPlane(
+          "./images/enemy3_fly_1.png",
+          random(0, oBox.offsetWidth - 46),
+          0,
+          random(1,2),
+          5,
+          12
+        );
+        enemyPlaneArr.push(me);
+        }
+        if(score%20==0&&score!=0){
+            var be = new EnemyPlane(
+          "./images/enemy2_fly_1.png",
+          random(0, oBox.offsetWidth - 110),
+          0,
+          1,
+          10,
+          20
+        );
+        enemyPlaneArr.push(be);
+        }
+        enemyPlaneArr.push(e);
+      }
+      //敌机移动
+      function enemyPlaneMove() {
+        for (var i = 0; i < enemyPlaneArr.length; i++) {
+          if (
+            enemyPlaneArr[i].obj.offsetTop >= oBox.offsetHeight ||
+            enemyPlaneArr[i].isDead
+          ) {
+            enemyPlaneArr[i].deadTime--;
+            if (enemyPlaneArr[i].deadTime == 0) {
+              oPlayPage.removeChild(enemyPlaneArr[i].obj);
+              enemyPlaneArr.splice(i, 1);
+            }
+          } else {
+            enemyPlaneArr[i].move();
+          }
+        }
+      }
+      //碰撞检测
+      function collisionDetection() {
+        //敌机与玩家飞机进行检测
+        for (var i = 0; i < enemyPlaneArr.length; i++) {
+          if (enemyPlaneArr[i].isDead) {
+            continue;
+          }
+          if (player.isDead) {
+            break;
+          }
+          if (collision(enemyPlaneArr[i].obj, player.obj)) {
+            //玩家飞机爆炸
+            player.obj.src = "./images/本方飞机爆炸.gif";
+            player.isDead = true;
+            setTimeout(gameOver, 1500);
+          }
+          //子弹和敌机进行检测
+          for (var j = 0; j < bulletArr.length; j++) {
+            if (collision(bulletArr[j].obj, enemyPlaneArr[i].obj)) {
+              //敌机血量减少
+              enemyPlaneArr[i].blood--;
+              //子弹死亡
+              bulletArr[j].isDead = true;
+              if (enemyPlaneArr[i].blood == 0) {
+                //敌机爆炸
+                if(enemyPlaneArr[i].src=='./images/enemy1_fly_1.png'){
+                    enemyPlaneArr[i].obj.src = "./images/小飞机爆炸.gif";
+                }else if(enemyPlaneArr[i].src=='./images/enemy3_fly_1.png'){
+                    enemyPlaneArr[i].obj.src = "./images/中飞机爆炸.gif";
+                }else if(enemyPlaneArr[i].src=='./images/enemy2_fly_1.png'){
+                    enemyPlaneArr[i].obj.src = "./images/大飞机爆炸.gif";
+                }
+                enemyPlaneArr[i].isDead = true;
+                //获取分数
+                score++;
+                oScore.innerHTML = "分数：" + score;
+              }
+            }
+          }
+        }
+      }
+      function gameOver() {
+        isStart = false;
+        oStartPage.style.display = "block";
+        oPlayPage.style.display = "none";
+        bulletArr = [];
+        enemyPlaneArr = [];
+        score = 0;
+        oPlayPage.innerHTML = "<span>分数：0</span>";
+        clearInterval(timer1);
+        clearInterval(timer2);
+        player = null;
+        isStart = false;
+      }
+      //键盘按下
+      function downFn() {
+        if (isStart) {
+          switch (event.keyCode) {
+            case 37:
+              bLeft = true;
+              break;
+            case 38:
+              bTop = true;
+              break;
+            case 39:
+              bRight = true;
+              break;
+            case 40:
+              bBottom = true;
+              break;
+            case 32:
+              player.shooting();
+              break;
+            case 13:
+              stop();
+              break;
+            case 81:
+              clear();
+              break 
+          }
+        } else {
+          if (event.keyCode == 13) {
+            startFn();
+            oPause.style.display='none';
+          }
+        }
+      }
+      oGoOn.addEventListener('click',function(){
+        startFn();
+        oPause.style.display='none';
+      })
+      oNew.addEventListener('click',function(){
+        gameOver();
+        startFn();
+        oPause.style.display='none';
+      })
+      oIndex.addEventListener('click',function(){
+        gameOver();
+        oPause.style.display='none';
+      })
+      function clear(){
+        isStart = false;
+        var boom=document.createElement('img')
+        boom.src='./images/boom.png';
+        boom.style.width='280px';
+        boom.style.zIndex='9';
+        oPlayPage.appendChild(boom);
+        clearInterval(timer1);
+        clearInterval(timer2);
+        enemyPlaneArr = [];
+        bulletArr=[];
+        player = null;
+        isStart = false;
+        setTimeout(function(){
+        oPlayPage.innerHTML = "<span>分数："+score+"</span>";
+        startFn()
+        },100)
+      }
+      //键盘抬起
+      function upFn() {
+        switch (event.keyCode) {
+          case 37:
+            bLeft = false;
+            break;
+          case 38:
+            bTop = false;
+            break;
+          case 39:
+            bRight = false;
+            break;
+          case 40:
+            bBottom = false;
+            break;
+        }
+      }
+      document.addEventListener("keydown", downFn);
+      document.addEventListener("keyup", upFn);
+    </script>
+  </body>
+</html>
